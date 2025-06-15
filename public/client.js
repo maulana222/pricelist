@@ -14,16 +14,12 @@ document.addEventListener('DOMContentLoaded', function() {
   // Function to fetch data from our API endpoint
   async function fetchData() {
     try {
-      // Dapatkan domain saat ini
-      const currentDomain = window.location.origin;
-      
-      const response = await fetch(`${currentDomain}/api/price-list`, {
+      const response = await fetch('/api/price-list', {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json'
-        },
-        credentials: 'same-origin' // Mengirim cookies jika ada
+        }
       });
 
       if (!response.ok) {
@@ -34,6 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
       
       if (data.error) {
         console.error('API Error:', data.error);
+        showError(data.error);
         return;
       }
       
@@ -45,15 +42,23 @@ document.addEventListener('DOMContentLoaded', function() {
       updateLastUpdated();
     } catch (error) {
       console.error('Error mengambil data:', error);
-      // Tampilkan pesan error ke user
-      const errorMessage = document.createElement('div');
-      errorMessage.className = 'alert alert-danger';
-      errorMessage.textContent = 'Gagal mengambil data. Silakan coba lagi nanti.';
-      document.body.appendChild(errorMessage);
+      showError('Gagal mengambil data. Silakan coba lagi nanti.');
+    }
+  }
+  
+  // Function to show error message
+  function showError(message) {
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'alert alert-danger';
+    errorDiv.textContent = message;
+    
+    const container = document.querySelector('.container');
+    if (container) {
+      container.insertBefore(errorDiv, container.firstChild);
       
-      // Hapus pesan error setelah 5 detik
+      // Remove error message after 5 seconds
       setTimeout(() => {
-        errorMessage.remove();
+        errorDiv.remove();
       }, 5000);
     }
   }
@@ -126,8 +131,14 @@ document.addEventListener('DOMContentLoaded', function() {
     renderCategorySection('', groupedData['Lainnya'], 'lainnya-container');
   }
   
-  // Fungsi untuk memperbarui waktu terakhir data diambil
+  // Function to update last updated time
   function updateLastUpdated() {
+    const lastUpdatedElement = document.getElementById('last-updated');
+    if (!lastUpdatedElement) {
+      console.warn('Element last-updated tidak ditemukan');
+      return;
+    }
+
     const now = new Date();
     const options = { 
       weekday: 'long', 
@@ -140,10 +151,7 @@ document.addEventListener('DOMContentLoaded', function() {
       hour12: false
     };
     const formattedDate = now.toLocaleDateString('id-ID', options);
-    const lastUpdatedElement = document.getElementById('last-updated');
-    if (lastUpdatedElement) {
-      lastUpdatedElement.textContent = `Terakhir diperbarui: ${formattedDate}`;
-    }
+    lastUpdatedElement.textContent = `Terakhir diperbarui: ${formattedDate}`;
   }
   
   // Render all categories using the same grouping logic

@@ -6,7 +6,8 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+// Gunakan port 80 untuk production
+const PORT = process.env.NODE_ENV === 'production' ? 80 : (process.env.PORT || 3000);
 
 // Enable CORS for all routes
 app.use(cors());
@@ -35,21 +36,24 @@ async function fetchPriceList() {
   };
  
   try {
+    console.log('Mencoba mengambil data dari:', credentials.url);
+    console.log('Dengan credentials:', { username: credentials.username, command });
+    
     const response = await axios.post(credentials.url, postData, {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      timeout: 10000 // 10 second timeout
+      timeout: 30000 // 30 second timeout
     });
     
     if (!response.data) {
-      throw new Error('No data received from API');
+      throw new Error('Tidak ada data yang diterima dari API');
     }
     
     return response.data;
   } catch (error) {
-    console.error('Error fetching price list:', error.message);
+    console.error('Error mengambil price list:', error.message);
     if (error.response) {
       console.error('API Response:', error.response.data);
       console.error('Status:', error.response.status);
@@ -258,16 +262,37 @@ function determineBrand(product) {
 // API endpoint to get price list data
 app.get('/api/price-list', async (req, res) => {
   try {
+    console.log('Memulai request ke /api/price-list');
+    
+    // Validasi credentials
+    if (!credentials.username || !credentials.apikey || !credentials.url) {
+      console.error('Credentials tidak lengkap:', {
+        username: credentials.username ? 'ada' : 'tidak ada',
+        apikey: credentials.apikey ? 'ada' : 'tidak ada',
+        url: credentials.url ? 'ada' : 'tidak ada'
+      });
+      return res.status(500).json({ 
+        error: "Konfigurasi API tidak lengkap", 
+        details: "Pastikan API_USERNAME, API_KEY, dan API_URL sudah dikonfigurasi di .env"
+      });
+    }
+
     const apiResponse = await fetchPriceList();
     
     if (apiResponse.error) {
       console.error('API Error:', apiResponse.error);
-      return res.status(500).json({ error: "Unable to retrieve data from API", details: apiResponse.error });
+      return res.status(500).json({ 
+        error: "Gagal mengambil data dari API", 
+        details: apiResponse.error 
+      });
     }
     
     if (!apiResponse.data || !Array.isArray(apiResponse.data)) {
       console.error('Invalid API Response:', apiResponse);
-      return res.status(500).json({ error: "Invalid data format received from API" });
+      return res.status(500).json({ 
+        error: "Format data dari API tidak valid",
+        details: "Data yang diterima tidak sesuai format yang diharapkan"
+      });
     }
     
     // Group the products into the hierarchical structure
@@ -277,7 +302,10 @@ app.get('/api/price-list', async (req, res) => {
     res.json(groupedData);
   } catch (error) {
     console.error('Error in /api/price-list endpoint:', error);
-    res.status(500).json({ error: "Internal server error", details: error.message });
+    res.status(500).json({ 
+      error: "Terjadi kesalahan internal server", 
+      details: error.message 
+    });
   }
 });
 
@@ -286,7 +314,19 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    error: "Terjadi kesalahan server",
+    details: err.message
+  });
+});
+
 // Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server berjalan di port ${PORT}`);
+  console.log('Environment:', process.env.NODE_ENV);
+  console.log('API URL:', credentials.url);
+  console.log('Server berjalan di:', process.env.NODE_ENV === 'production' ? 'Production' : 'Development');
 });
