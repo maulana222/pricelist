@@ -2,18 +2,23 @@ const express = require('express');
 const axios = require('axios');
 const crypto = require('crypto');
 const path = require('path');
+const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Enable CORS for all routes
+app.use(cors());
+
 // Serve static files from the 'public' directory
 app.use(express.static(path.join(__dirname, 'public')));
 
-// API credentials
+// API credentials from environment variables
 const credentials = {
-  username: "dica85565",
-  apikey: "67dc6215626f19.85865",
-  url: "https://digiprosb.api.digiswitch.id/v1/user/api/price-list"
+  username: process.env.API_USERNAME,
+  apikey: process.env.API_KEY,
+  url: process.env.API_URL
 };
 
 // Function to fetch price list data
@@ -32,13 +37,23 @@ async function fetchPriceList() {
   try {
     const response = await axios.post(credentials.url, postData, {
       headers: {
-        'Content-Type': 'application/json'
-      }
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      timeout: 10000 // 10 second timeout
     });
+    
+    if (!response.data) {
+      throw new Error('No data received from API');
+    }
     
     return response.data;
   } catch (error) {
     console.error('Error fetching price list:', error.message);
+    if (error.response) {
+      console.error('API Response:', error.response.data);
+      console.error('Status:', error.response.status);
+    }
     return { error: error.message };
   }
 }
@@ -137,7 +152,7 @@ function determineCategory(product) {
   const category = (product.category || '').toLowerCase();
   
   // Pulsa Transfer detection
-  const transferKeywords = ['transfer', 'pulsa transfer', 'bagi pulsa', 'shared pulsa', 'kirim pulsa'];
+  const transferKeywords = ['pulsa transfer', 'bagi pulsa', 'shared pulsa', 'kirim pulsa'];
   for (const keyword of transferKeywords) {
     if (desc.includes(keyword)) {
       return 'Pulsa Transfer';
@@ -239,21 +254,30 @@ function determineBrand(product) {
 
   return 'Lainnya';
 }
+
 // API endpoint to get price list data
 app.get('/api/price-list', async (req, res) => {
   try {
     const apiResponse = await fetchPriceList();
     
-    if (!apiResponse.data || !Array.isArray(apiResponse.data)) {
-      return res.status(500).json({ error: "Unable to retrieve data from API" });
+    if (apiResponse.error) {
+      console.error('API Error:', apiResponse.error);
+      return res.status(500).json({ error: "Unable to retrieve data from API", details: apiResponse.error });
     }
     
-    const groupedProducts = groupProducts(apiResponse.data);
+    if (!apiResponse.data || !Array.isArray(apiResponse.data)) {
+      console.error('Invalid API Response:', apiResponse);
+      return res.status(500).json({ error: "Invalid data format received from API" });
+    }
     
-    res.json(groupedProducts);
+    // Group the products into the hierarchical structure
+    const groupedData = groupProducts(apiResponse.data);
+    
+    // Send the grouped data as JSON response
+    res.json(groupedData);
   } catch (error) {
-    console.error('Error:', error.message);
-    res.status(500).json({ error: error.message });
+    console.error('Error in /api/price-list endpoint:', error);
+    res.status(500).json({ error: "Internal server error", details: error.message });
   }
 });
 
@@ -262,7 +286,7 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Start the server
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Open your browser and navigate to http://localhost:${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });

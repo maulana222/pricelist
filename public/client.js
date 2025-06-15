@@ -14,20 +14,47 @@ document.addEventListener('DOMContentLoaded', function() {
   // Function to fetch data from our API endpoint
   async function fetchData() {
     try {
-      // Use the hierarchical endpoint
-      const response = await fetch('/api/price-list');
+      // Dapatkan domain saat ini
+      const currentDomain = window.location.origin;
+      
+      const response = await fetch(`${currentDomain}/api/price-list`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        credentials: 'same-origin' // Mengirim cookies jika ada
+      });
+
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
       
       const data = await response.json();
       
+      if (data.error) {
+        console.error('API Error:', data.error);
+        return;
+      }
+      
       // Filter data before updating UI
       const filteredData = filterData(data);
+      console.log('Data berhasil diambil:', filteredData);
+      
       updateUI(filteredData);
       updateLastUpdated();
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('Error mengambil data:', error);
+      // Tampilkan pesan error ke user
+      const errorMessage = document.createElement('div');
+      errorMessage.className = 'alert alert-danger';
+      errorMessage.textContent = 'Gagal mengambil data. Silakan coba lagi nanti.';
+      document.body.appendChild(errorMessage);
+      
+      // Hapus pesan error setelah 5 detik
+      setTimeout(() => {
+        errorMessage.remove();
+      }, 5000);
     }
   }
   
@@ -97,6 +124,26 @@ document.addEventListener('DOMContentLoaded', function() {
     renderCategorySection('Games', groupedData['Games'], 'games-container');
     renderCategorySection('', groupedData['PLN'], 'pln-container');
     renderCategorySection('', groupedData['Lainnya'], 'lainnya-container');
+  }
+  
+  // Fungsi untuk memperbarui waktu terakhir data diambil
+  function updateLastUpdated() {
+    const now = new Date();
+    const options = { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    };
+    const formattedDate = now.toLocaleDateString('id-ID', options);
+    const lastUpdatedElement = document.getElementById('last-updated');
+    if (lastUpdatedElement) {
+      lastUpdatedElement.textContent = `Terakhir diperbarui: ${formattedDate}`;
+    }
   }
   
   // Render all categories using the same grouping logic
