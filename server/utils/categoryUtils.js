@@ -95,10 +95,20 @@ function determineCategory(product) {
   const category = (product.category || '').toLowerCase();
   
   // Pulsa Transfer detection
-  const transferKeywords = ['transfer', 'pulsa transfer', 'bagi pulsa', 'shared pulsa', 'kirim pulsa'];
-  for (const keyword of transferKeywords) {
-    if (desc.includes(keyword)) {
-      return 'Pulsa Transfer';
+  const negativeTransferKeywords = ['anti transfer', 'bukan transfer', 'non transfer'];
+  let isNegative = false;
+  for (const negKeyword of negativeTransferKeywords) {
+    if (desc.includes(negKeyword)) {
+      isNegative = true;
+      break;
+    }
+  }
+  if (!isNegative) {
+    const transferKeywords = ['transfer', 'pulsa transfer', 'bagi pulsa', 'shared pulsa', 'kirim pulsa'];
+    for (const keyword of transferKeywords) {
+      if (desc.includes(keyword)) {
+        return 'Pulsa Transfer';
+      }
     }
   }
   
